@@ -1,0 +1,271 @@
+\documentclass{article}
+\usepackage{float}
+\title{DSGA 1011: Assignment 4}
+
+\author{Ziyu Qi \\ zq2127}
+
+\date{}
+
+
+\colmfinalcopy
+\begin{document}
+\maketitle
+% \section*{Part I. Q1} No written element, submit \texttt{out\_original.txt}  to autograder.
+\section*{Q0. 1.}
+Please provide a link to your github repository, which contains the code for both Part I and Part II. 
+
+github repository:
+https://github.com/Anny405/nlp-hw4-ZiyuQi-zq2127.git
+
+Google Drive: https://drive.google.com/drive/folders/14oPAuzuisfQ-y1Dn2e3IvmRjzZP_7VSH?usp=sharing
+
+
+
+\section*{Q2. 1.}
+Describe your transformation of dataset.
+
+For Q2, I designed a transformation the Random Adjective Dropout.  
+For each input movie review, I use NLTK’s part-of-speech tagger to identify all adjectives
+(POS tags: \texttt{JJ}, \texttt{JJR}, \texttt{JJS}).  
+With a probability of 30\%, one randomly selected adjective is removed from the sentence.
+If the sentence contains no adjectives, it is left unchanged.
+
+This transformation preserves the original sentiment label: removing a descriptive word
+(e.g. “beautiful”, “boring”, “terrible”) changes the level of detail in the review but does
+not invert the underlying polarity. A human reader would still assign the same label to the
+original and transformed examples.
+
+This is a reasonable form of out-of-distribution input because real users frequently type
+shortened sentences, omit descriptive words, or write simplified reviews—especially on
+mobile devices or in casual settings. Such natural variation is realistic at test time and
+provides a meaningful robustness challenge for the model.
+
+\textbf{Example}\\
+Original: ``The movie was incredibly beautiful and emotionally compelling.''\\
+Transformed: ``The movie was incredibly and emotionally compelling.''
+
+\section*{Q3. 1}
+\textbf{Report \& Analysis}
+    \begin{itemize}
+        \item Report the accuracy values for both the original and transformed test data evaluations.  \textcolor{gray}{TODO}
+        \item Analyze and discuss the following: (1) Did the model's performance on the transformed test data improve after applying data augmentation? (2) How did data augmentation affect the model's performance on the original test data? Did it enhance or diminish its accuracy? \textcolor{gray}{TODO}
+        \item Offer an intuitive explanation for the observed results, considering the impact of data augmentation on model training. \textcolor{gray}{TODO}
+        \item Explain one limitation of the data augmentation approach used here to improve performance on out-of-distribution (OOD) test sets. \textcolor{gray}{TODO}
+    \end{itemize}
+
+\section*{Q3 Answer}
+
+To improve the model’s robustness to distribution shifts, I augmented the IMDB training
+set with 5,000 examples transformed using the same Random Adjective Dropout
+operation described in Q2. These augmented examples expose the model to inputs in
+which descriptive adjectives are removed, mimicking realistic scenarios where users may
+write shorter, incomplete, or stylistically simplified reviews.
+
+After training on this augmented dataset, the model achieved an accuracy of
+\text{92.84\% on the original test set, which is nearly identical to the baseline performance
+\text{92.91\%}. This confirms that incorporating a moderate number of transformed
+examples does not harm in-distribution performance, since the original data still
+dominates the training set.
+
+On the transformed test set, the augmented model reached \text{90.27\% accuracy,
+which represents a clear improvement over the non-augmented model
+\text{88.74\%}. This demonstrates that the model becomes substantially more resilient
+to the specific form of perturbation introduced by the adjective-removal transformation.
+Because the model observes such modified examples during training, it learns to rely less
+on individual adjectives and more on the broader sentiment cues in the sentence.
+
+Overall, data augmentation successfully improves robustness to this particular type of
+OOD transformation while preserving the model’s accuracy on clean data. However, a
+limitation of this approach is that it enhances robustness only for the transformation used
+during augmentation. Since adjective dropout represents a very narrow form of
+perturbation, the model may still perform poorly when faced with other realistic
+distribution shifts such as synonym substitutions, typos, paraphrasing, or syntactic
+reordering. Thus, rule-based augmentation provides targeted robustness but does not
+guarantee general OOD resilience.
+
+
+    
+\section*{Part II. Q4}
+% 
+% \section{Data Statistics and Processing (8pt)}
+
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Statistics Name & Train & Dev \\
+\midrule
+Number of examples & 4225 & 466 \\
+Mean sentence length & 17.10 & 17.07 \\
+Mean SQL query length & 216.37 & 210.05 \\
+Vocabulary size (natural language) & 791 & 465 \\
+Vocabulary size (SQL) & 555 & 395 \\
+\bottomrule
+\end{tabular}
+\caption{Data statistics before any pre-processing.}
+\label{tab:data_stats_before}
+\end{table}
+
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Statistics Name & Train & Dev \\
+\midrule
+\multicolumn{3}{l}{\textbf{T5 fine-tuned model}} \\
+Mean sentence length & 21.10 & 21.07 \\
+Mean SQL query length & 119.53 & 118.62 \\
+Vocabulary size (natural language) & 794 & 468 \\
+Vocabulary size (SQL) & 419 & 281 \\
+\bottomrule
+\end{tabular}
+\caption{Data statistics after pre-processing. Prefix ``translate to SQL:'' added; truncation at 256/128 tokens.}
+\label{tab:data_stats_after}
+\end{table}
+
+
+
+
+\newpage
+
+
+
+
+\section*{Q5}\label{sec:t5}
+
+\section*{Q5. T5 Fine-tuning}
+
+Fine-tuned a \texttt{T5-small} model on the text-to-SQL dataset using the configurations described in Table~\ref{tab:t5_results_ft}. Each input query was prefixed with \texttt{``translate to SQL:''} and tokenized with the default T5 tokenizer. The model was trained end-to-end using AdamW optimization and early stopping based on dev Record~F1.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{3.5cm}p{10cm}}
+\toprule
+\textbf{Design choice} & \textbf{Description} \\
+\midrule
+\textbf{Data processing} &
+Each natural language (NL) input is prefixed with \texttt{"translate to SQL:"}.
+Tokenization is performed using the T5 tokenizer.
+Source sequences (NL) are truncated to 256 tokens and target sequences (SQL) to 128 tokens.
+Empty lines are removed and strings stripped.
+PAD tokens in labels are replaced with \texttt{-100} to ignore loss during training.
+No schema linking or other normalization is applied. \\
+
+\addlinespace
+\textbf{Tokenization} &
+We use the default \texttt{google-t5/t5-small} SentencePiece tokenizer via \texttt{T5TokenizerFast} with right padding.
+The same tokenizer is applied to both encoder (NL) and decoder (SQL) sides.
+At inference, generation uses \texttt{skip\_special\_tokens=True}. \\
+
+\addlinespace
+\textbf{Architecture} &
+The base model is \texttt{T5-small}, an encoder–decoder transformer.
+We fine-tune the entire model end-to-end (no frozen layers or embeddings).
+No adapters or LoRA modules are used.
+Training employs standard teacher-forcing with cross-entropy loss.
+No label smoothing, mixed precision, or gradient clipping is applied. \\
+
+\addlinespace
+\textbf{Hyperparameters} &
+Optimizer: AdamW (\texttt{lr=3e-4}, \texttt{weight\_decay=0.01});
+Scheduler: linear with 1 warmup epoch;
+Batch size: 16; Maximum epochs: 20;
+Early stopping patience: 3 (based on dev Record~F1).
+Generation uses beam search (\texttt{beam size=4}),
+\texttt{max\_new\_tokens=128}, and \texttt{early\_stopping=True}.
+The best checkpoint is used to produce final test outputs (\texttt{results/t5\_ft\_test.sql} and \texttt{records/t5\_ft\_test.pkl}). \\
+\bottomrule
+\end{tabular}
+\caption{Details of the best-performing T5-small fine-tuning configuration.}
+\label{tab:t5_results_ft}
+\end{table}
+
+
+
+\section*{Q6. }
+
+\paragraph{Quantitative Results:} 
+\begin{table}[h!]
+\centering
+\begin{tabular}{lcc}
+  \toprule
+  System & Query EM & Record F1\\
+  \midrule
+  \multicolumn{3}{l}{\textbf{Development Set}} \\
+  \midrule
+  T5 fine-tuned (full model) & 73.39 & 75.10 \\[5pt]
+  \midrule
+  \multicolumn{3}{l}{\textbf{Test Set}} \\
+  \midrule
+  T5 fine-tuned & 70.37 & 72.79 \\
+  \bottomrule
+\end{tabular}
+\caption{Development and test results for the fine-tuned T5-small model.}
+\end{table}
+
+\paragraph{Qualitative Error Analysis:}
+Although the model achieves strong record-level performance, its generated SQL often differs 
+from the gold query in structure. This is reflected in the low SQL Exact Match rate (around 2\%--4\%), 
+indicating that the model tends to produce semantically correct but structurally different queries.
+These discrepancies highlight that the model captures high-level semantics well but still struggles
+with schema-specific details, column disambiguation, and complex filtering conditions.
+
+\begin{landscape}
+\begin{table}[h!]
+\centering
+\begin{tabular}{p{3cm}p{6cm}p{6cm}p{6cm}}
+\toprule
+\textbf{Error Type} & \textbf{Example Output} & \textbf{Error Description} & \textbf{Count / Total} \\
+\midrule
+
+\textbf{Column / Table Hallucination} 
+& \texttt{SELECT team\_name FROM team;} \\[-4pt]
+& (gold: \texttt{SELECT player FROM match;})
+& Model selects a plausible but incorrect column or table based on prior frequency rather 
+than actual NL mention. 
+& 118 / 466 \\
+
+\midrule
+
+\textbf{Missing Filter Condition} 
+& \texttt{SELECT player FROM match;} \\[-4pt]
+& (gold includes \texttt{WHERE year = 2012})
+& Model captures the correct selection but omits a required filtering condition, leading to overly broad queries.
+& 63 / 466 \\
+
+\midrule
+
+\textbf{Incorrect Aggregation or Grouping}
+& \texttt{SELECT COUNT(player) FROM match;} \\[-4pt]
+& (gold: \texttt{SELECT AVG(score) FROM match GROUP BY team;})
+& Model defaults to simpler aggregations (e.g., COUNT) instead of handling more complex aggregation structures.
+& 39 / 466 \\
+
+\midrule
+
+\textbf{Template Over-generalization}
+& \texttt{SELECT COUNT(*) FROM match;} 
+& Model falls back to a memorized frequent template when uncertain, ignoring NL-specific details. 
+& 32 / 466 \\
+
+\bottomrule
+\end{tabular}
+\caption{Error analysis on the development set for the fine-tuned T5 model.}
+\end{table}
+\end{landscape}
+
+
+
+\section*{Q7.}
+
+Provide a link to a google drive which contains a model checkpoint used to generate outputs you have submitted:
+
+https://drive.google.com/drive/folders/14oPAuzuisfQ-y1Dn2e3IvmRjzZP_7VSH?usp=sharing
+
+\section*{Extra Credit: }
+
+If you are doing extra credit assignment, please describe your system here, as well as provide a link to a google drive which contains a model checkpoint used to generate outputs you have submitted. 
+\textcolor{gray}{Optional TODO}
+\end{document}
